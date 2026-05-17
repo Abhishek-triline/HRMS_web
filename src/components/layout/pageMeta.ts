@@ -44,12 +44,13 @@ export const PAGE_META: Record<string, PageMeta> = {
   '/admin/audit-log':                 { title: 'Audit Log' },
   '/admin/configuration':             { title: 'System Configuration' },
   '/admin/queues':                    { title: 'Approval Queues',                   subtitle: 'Regularisation & Encashment requests' },
+  '/admin/team':                      { title: 'My Team',                          subtitle: 'Your direct and indirect reports' },
   '/admin/notifications':             { title: 'Notifications' },
   '/admin/profile':                   { title: 'My Profile' },
 
   // ── Manager ─────────────────────────────────────────────────────────────────
   '/manager/dashboard':               { title: 'Dashboard',                        subtitle: '{date}' },
-  '/manager/team':                    { title: 'My Team' },
+  '/manager/team':                    { title: 'My Team',                          subtitle: 'Your direct and indirect reports' },
   '/manager/leave-queue':             { title: 'Leave Approval Queue' },
   '/manager/leave-encashment':        { title: 'My Leave Encashment' },
   '/manager/leave-encashment-queue':  { title: 'Encashment Queue',                  subtitle: 'Pending requests assigned to you' },

@@ -91,6 +91,11 @@ export type NavEntry = NavLink | NavSubhead | NavDivider;
 const adminNav: NavEntry[] = [
   { type: 'link', label: 'Dashboard',            href: '/admin/dashboard',               iconPath: ICONS.dashboard },
   { type: 'link', label: 'Employees',            href: '/admin/employees',               iconPath: ICONS.employees },
+  // Admins are allowed to be a line manager (BL-015/017/022). The /admin/team
+  // page renders the same direct + indirect reports view managers get, but
+  // the sidebar entry is parked for now — re-enable once the surface is
+  // validated end-to-end. The page itself stays routable for deep-link tests.
+  // { type: 'link', label: 'My Team',              href: '/admin/team',                    iconPath: ICONS.myTeam },
   { type: 'link', label: 'Leave',                href: '/admin/leave-queue',             iconPath: ICONS.leave },
   // Consolidated approval queues — Regularisation + Encashment live behind
   // a tabbed hub at /admin/queues. Standalone routes still resolve for

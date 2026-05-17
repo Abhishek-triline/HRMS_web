@@ -21,6 +21,12 @@ export interface DashboardPanelCardProps {
   children?: ReactNode;
   /** Number of skeleton rows to render while loading */
   skeletonRows?: number;
+  /**
+   * Fixed minimum height for the card body so the panel doesn't shrink/grow
+   * with row count. Applied to loading, error, empty, and content states
+   * uniformly. Accepts any Tailwind size class fragment, e.g. "h-[320px]".
+   */
+  bodyMinHeightClass?: string;
 }
 
 function SkeletonRows({ count }: { count: number }) {
@@ -50,7 +56,11 @@ export function DashboardPanelCard({
   emptyMessage = 'Nothing to show right now.',
   children,
   skeletonRows = 4,
+  bodyMinHeightClass,
 }: DashboardPanelCardProps) {
+  const bodyClass = bodyMinHeightClass
+    ? `${bodyMinHeightClass} overflow-y-auto`
+    : '';
   return (
     <div className="bg-white rounded-xl border border-sage/30 overflow-hidden">
       {/* Header */}
@@ -63,30 +73,32 @@ export function DashboardPanelCard({
         )}
       </div>
 
-      {isLoading && <SkeletonRows count={skeletonRows} />}
+      <div className={bodyClass}>
+        {isLoading && <SkeletonRows count={skeletonRows} />}
 
-      {isError && !isLoading && (
-        <div className="px-5 py-6 text-center">
-          <p className="text-xs text-crimson mb-2">Failed to load data.</p>
-          {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="text-xs text-emerald underline hover:text-forest transition-colors min-h-[44px]"
-            >
-              Try again
-            </button>
-          )}
-        </div>
-      )}
+        {isError && !isLoading && (
+          <div className="px-5 py-6 text-center">
+            <p className="text-xs text-crimson mb-2">Failed to load data.</p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="text-xs text-emerald underline hover:text-forest transition-colors min-h-[44px]"
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        )}
 
-      {!isLoading && !isError && isEmpty && (
-        <div className="px-5 py-8 text-center">
-          <p className="text-sm text-slate">{emptyMessage}</p>
-        </div>
-      )}
+        {!isLoading && !isError && isEmpty && (
+          <div className="px-5 py-8 text-center">
+            <p className="text-sm text-slate">{emptyMessage}</p>
+          </div>
+        )}
 
-      {!isLoading && !isError && !isEmpty && children}
+        {!isLoading && !isError && !isEmpty && children}
+      </div>
     </div>
   );
 }

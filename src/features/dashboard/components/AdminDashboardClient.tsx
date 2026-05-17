@@ -12,13 +12,14 @@
 
 import { useMe } from '@/lib/hooks/useAuth';
 import { useCycles } from '@/lib/hooks/usePerformance';
-import { useEmployeesList } from '@/lib/hooks/useEmployees';
+import { useEmployeesList, useEmployeeNameMap } from '@/lib/hooks/useEmployees';
 import { useAttendanceStats } from '@/lib/hooks/useAttendance';
 import { useAdminDashboard } from '@/features/dashboard/hooks/useAdminDashboard';
 import { EMPLOYEE_STATUS, PAYROLL_STATUS, LEAVE_TYPE_MAP, ROLE_MAP } from '@/lib/status/maps';
 import { TimeOfDayHero } from './TimeOfDayHero';
 import { KpiTile } from './KpiTile';
 import { DashboardPanelCard } from './DashboardPanelCard';
+import { actionSentence, moduleLabel } from '@/lib/audit/actionLabels';
 import Link from 'next/link';
 
 // Build YYYY-MM-DD from local fields, not via toISOString() — the UTC
@@ -100,6 +101,10 @@ export function AdminDashboardClient({ firstName: firstNameProp }: AdminDashboar
     firstNameProp ?? me.data?.data?.user?.name?.split(' ')[0] ?? '';
 
   const dashboard = useAdminDashboard();
+  // Resolve actor IDs in the Recent Activity feed to display names; role label
+  // is used as a fallback when no actorId is set (system jobs) or the actor
+  // isn't in the directory snapshot.
+  const employeeNameMap = useEmployeeNameMap();
   const openCycles = useCycles({ status: 1 }); // 1 = Open
   const activeCycle = openCycles.data?.data?.[0] ?? null;
 
@@ -225,6 +230,7 @@ export function AdminDashboardClient({ firstName: firstNameProp }: AdminDashboar
           isEmpty={dashboard.pendingLeaveTop5.length === 0}
           emptyMessage="No pending leave requests — all clear!"
           skeletonRows={4}
+          bodyMinHeightClass="h-[360px]"
         >
           <div className="overflow-x-auto">
             <table className="w-full" aria-label="Pending leave approvals">
@@ -297,22 +303,28 @@ export function AdminDashboardClient({ firstName: firstNameProp }: AdminDashboar
             skeletonRows={5}
           >
             <div className="px-5 py-4 space-y-4" aria-live="polite">
-              {dashboard.recentActivity.map((entry) => (
-                <div key={entry.id} className="flex gap-3">
-                  <div className="w-7 h-7 rounded-full bg-greenbg flex items-center justify-center flex-shrink-0 mt-0.5" aria-hidden="true">
-                    <svg className="w-3.5 h-3.5 text-richgreen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
+              {dashboard.recentActivity.map((entry) => {
+                const roleLabel = ROLE_MAP[entry.actorRoleId]?.label ?? String(entry.actorRoleId);
+                const actorName = entry.actorId
+                  ? employeeNameMap.get(entry.actorId) ?? roleLabel
+                  : 'System';
+                return (
+                  <div key={entry.id} className="flex gap-3">
+                    <div className="w-7 h-7 rounded-full bg-greenbg flex items-center justify-center flex-shrink-0 mt-0.5" aria-hidden="true">
+                      <svg className="w-3.5 h-3.5 text-richgreen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-charcoal font-medium">{actionSentence(entry.action)}</p>
+                      <p className="text-xs text-slate mt-0.5">
+                        {actorName} · {moduleLabel(entry.moduleName)}
+                      </p>
+                      <p className="text-xs text-sage mt-0.5">{timeAgo(entry.createdAt)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-charcoal font-medium">{entry.action}</p>
-                    <p className="text-xs text-slate mt-0.5">
-                      {ROLE_MAP[entry.actorRoleId]?.label ?? String(entry.actorRoleId)} · {entry.moduleName}
-                    </p>
-                    <p className="text-xs text-sage mt-0.5">{timeAgo(entry.createdAt)}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </DashboardPanelCard>
         </div>

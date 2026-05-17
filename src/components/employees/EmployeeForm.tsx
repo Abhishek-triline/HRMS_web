@@ -472,8 +472,15 @@ export function EmployeeForm(props: EmployeeFormProps) {
                 name="reportingManagerId"
                 control={control}
                 render={({ field }) => {
-                  // Admins may only report to another Admin (BL-017)
-                  const eligibleRoles = isAdminRole ? 'Admin' : 'Manager,Admin';
+                  // Admins may only report to another Admin (BL-017). The
+                  // picker's `eligibleRoles` is forwarded as the API's
+                  // `roleId` filter, which is numeric — so we send role IDs,
+                  // not role names. Sending names would fail Zod regex
+                  // validation server-side and the picker would silently
+                  // return zero candidates.
+                  const eligibleRoles = isAdminRole
+                    ? String(ROLE_ID.Admin)
+                    : `${ROLE_ID.Manager},${ROLE_ID.Admin}`;
                   return (
                     <HierarchyPicker
                       value={field.value}
