@@ -169,9 +169,11 @@ function OrgAttendancePage() {
   const kpiYetToCheckIn = stats?.yetToCheckIn ?? 0;
   const presentPct = total > 0 ? Math.round((kpiPresent / total) * 100) : 0;
 
-  // Late threshold breaches this month (>= 3 late marks) — needs a separate
-  // monthly aggregate endpoint (v1.1 backlog). For now we just label the alert.
-  const lateThresholdBreachCount = kpiLate;
+  // Late threshold breaches this month (BL-028: ≥ 3 late marks → 1-day
+  // Annual leave deduction). Comes from /attendance/stats which counts
+  // distinct employees in attendance_late_ledger with count >= 3 for the
+  // anchor month. Falls back to 0 while the field is undefined.
+  const lateThresholdBreachCount = stats?.lateThresholdBreaches ?? 0;
 
   const fmtDateDisplay = (dateStr: string) => {
     const [y, m, d] = dateStr.split('-');
@@ -363,8 +365,11 @@ function OrgAttendancePage() {
         />
       </div>
 
-      {/* Late mark alert banner */}
-      {kpiLate > 0 && (
+      {/* Late mark alert banner — fires only when at least one employee
+          has actually breached the 3-late-marks-per-month threshold this
+          month. Was previously gated on kpiLate (today's late count) and
+          rendered the alert for any tardy check-in, mismatching the copy. */}
+      {lateThresholdBreachCount > 0 && (
         <div
           className="bg-crimsonbg/50 border border-crimson/30 rounded-xl px-5 py-4 mb-5 flex items-start gap-3"
           role="note"

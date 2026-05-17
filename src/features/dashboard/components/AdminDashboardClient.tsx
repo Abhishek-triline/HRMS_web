@@ -13,7 +13,7 @@
 import { useMe } from '@/lib/hooks/useAuth';
 import { useCycles } from '@/lib/hooks/usePerformance';
 import { useEmployeesList } from '@/lib/hooks/useEmployees';
-import { useAttendanceList } from '@/lib/hooks/useAttendance';
+import { useAttendanceStats } from '@/lib/hooks/useAttendance';
 import { useAdminDashboard } from '@/features/dashboard/hooks/useAdminDashboard';
 import { EMPLOYEE_STATUS, PAYROLL_STATUS, LEAVE_TYPE_MAP, ROLE_MAP } from '@/lib/status/maps';
 import { TimeOfDayHero } from './TimeOfDayHero';
@@ -103,13 +103,14 @@ export function AdminDashboardClient({ firstName: firstNameProp }: AdminDashboar
   const openCycles = useCycles({ status: 1 }); // 1 = Open
   const activeCycle = openCycles.data?.data?.[0] ?? null;
 
-  // Late marks this month — team-wide attendance
+  // Late marks this month — team-wide attendance.
+  // Server-aggregated via /attendance/stats. The prior /attendance list
+  // call was paginated at 20 rows per page, so it would only catch late
+  // check-ins in the first slice of the month and silently miss the rest.
   const today = todayISO();
   const monthStart = monthStartISO();
-  const attendanceAll = useAttendanceList('all', { from: monthStart, to: today });
-  const lateMarks = (attendanceAll.data?.data ?? []).filter(
-    (r: { late?: boolean }) => r.late,
-  ).length;
+  const attendanceStats = useAttendanceStats({ from: monthStart, to: today });
+  const lateMarks = attendanceStats.data?.late ?? 0;
 
   // Employees on notice (status transitions for upcoming exits)
   const onNotice = useEmployeesList({ status: EMPLOYEE_STATUS.OnNotice, limit: 10 });
@@ -328,7 +329,7 @@ export function AdminDashboardClient({ firstName: firstNameProp }: AdminDashboar
             <span className="text-xs font-semibold text-slate uppercase tracking-widest">
               Late Marks
             </span>
-            {attendanceAll.isLoading ? (
+            {attendanceStats.isLoading ? (
               <div className="w-8 h-4 bg-sage/20 rounded animate-pulse" />
             ) : (
               <span className="bg-crimsonbg text-crimson text-[10px] font-bold px-1.5 py-0.5 rounded">
@@ -337,7 +338,7 @@ export function AdminDashboardClient({ firstName: firstNameProp }: AdminDashboar
             )}
           </div>
           <p className="text-sm text-charcoal mt-2">
-            {attendanceAll.isLoading
+            {attendanceStats.isLoading
               ? 'Loading…'
               : `${lateMarks} late mark${lateMarks !== 1 ? 's' : ''} recorded this month.`}
           </p>
