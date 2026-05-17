@@ -23,7 +23,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEmployee, useUpdateSalary, useChangeStatus } from '@/lib/hooks/useEmployees';
+import { useEmployee, useUpdateSalary, useChangeStatus, useResendInvite } from '@/lib/hooks/useEmployees';
 import { qk } from '@/lib/api/query-keys';
 import { EmployeeForm } from '@/components/employees/EmployeeForm';
 import { EmployeeStatusBadge } from '@/components/employees/EmployeeStatusBadge';
@@ -160,13 +160,13 @@ function SalaryEditModal({
 type ManualStatus = 1 | 2 | 5;
 const MANUAL_STATUS_OPTIONS: { value: ManualStatus; label: string }[] = [
   { value: EMPLOYEE_STATUS.Active, label: 'Active' },
-  { value: EMPLOYEE_STATUS.OnNotice, label: 'On-Notice' },
+  { value: EMPLOYEE_STATUS.OnNotice, label: 'On Notice' },
   { value: EMPLOYEE_STATUS.Exited, label: 'Exited' },
 ];
 
 function toManualStatus(s: number): ManualStatus {
   if (s === EMPLOYEE_STATUS.Active || s === EMPLOYEE_STATUS.OnNotice || s === EMPLOYEE_STATUS.Exited) return s as ManualStatus;
-  return EMPLOYEE_STATUS.Active; // On-Leave / Inactive fall back to Active for the selector default
+  return EMPLOYEE_STATUS.Active; // fallback only used when dropdown is actually editable
 }
 
 function QuickStatusChange({
@@ -178,6 +178,15 @@ function QuickStatusChange({
   currentStatus: number;
   version: number;
 }) {
+  // System-managed statuses (Inactive = invite pending, OnLeave = an
+  // approved leave is active) can't be set by the admin, so the select is
+  // disabled and the option list shows the current state for clarity. The
+  // admin clears those states through the right flow (Resend invite for
+  // Inactive, leave cancellation/end for OnLeave).
+  const isSystemManaged =
+    currentStatus === EMPLOYEE_STATUS.Inactive || currentStatus === EMPLOYEE_STATUS.OnLeave;
+  const isExited = currentStatus === EMPLOYEE_STATUS.Exited;
+
   const [selected, setSelected] = useState<ManualStatus>(toManualStatus(currentStatus));
   const changeStatus = useChangeStatus(employeeId);
 
@@ -196,37 +205,54 @@ function QuickStatusChange({
     }
   }
 
-  const isExited = currentStatus === EMPLOYEE_STATUS.Exited;
+  // For Inactive / OnLeave we render a single disabled option with the
+  // actual current label, so the dropdown doesn't lie about the state.
+  // The explainer below the select carries the "why" — no need to inline
+  // a parenthetical here.
+  const systemManagedLabel =
+    currentStatus === EMPLOYEE_STATUS.Inactive ? 'Inactive' : 'On Leave';
 
   return (
     <div>
       <label className="block text-xs font-medium text-charcoal mb-1.5">Change Status</label>
       <div className="flex gap-2">
         <select
-          value={selected}
+          value={isSystemManaged ? String(currentStatus) : selected}
           onChange={(e) => setSelected(Number(e.target.value) as ManualStatus)}
-          disabled={isExited || changeStatus.isPending}
+          disabled={isExited || isSystemManaged || changeStatus.isPending}
           aria-label="Select new status"
           className="flex-1 border border-sage/50 rounded-lg px-2.5 py-2 text-xs text-slate focus:outline-none focus:ring-1 focus:ring-forest/30 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {MANUAL_STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label === 'On-Notice' ? 'On Notice' : opt.label}</option>
-          ))}
+          {isSystemManaged ? (
+            <option value={String(currentStatus)}>{systemManagedLabel}</option>
+          ) : (
+            MANUAL_STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))
+          )}
         </select>
         <Button
           variant="primary"
           size="sm"
           onClick={handleApply}
           loading={changeStatus.isPending}
-          disabled={isExited || selected === currentStatus}
+          disabled={isExited || isSystemManaged || selected === currentStatus}
         >
           Apply
         </Button>
       </div>
-      <p className="text-[11px] text-slate mt-1.5 leading-snug">
-        <span className="font-semibold text-charcoal">On-Leave</span> is set automatically when an
-        approved leave is active. It cannot be set manually.
-      </p>
+      {currentStatus === EMPLOYEE_STATUS.Inactive ? (
+        <p className="text-[11px] text-slate mt-1.5 leading-snug">
+          <span className="font-semibold text-charcoal">Inactive</span> means the employee
+          hasn&apos;t completed first-login. Use the <span className="font-semibold text-charcoal">Resend invitation</span>{' '}
+          button to issue a fresh activation link.
+        </p>
+      ) : (
+        <p className="text-[11px] text-slate mt-1.5 leading-snug">
+          <span className="font-semibold text-charcoal">On Leave</span> is set automatically when an
+          approved leave is active. It cannot be set manually.
+        </p>
+      )}
     </div>
   );
 }
@@ -245,6 +271,34 @@ export default function EmployeeDetailPage() {
   const statusModal = useModal();
   const reassignModal = useModal();
   const salaryModal = useModal();
+  const resendInvite = useResendInvite(id);
+
+  async function handleResendInvite() {
+    try {
+      const result = await resendInvite.mutateAsync();
+      if (result.invitationSent) {
+        showToast({
+          type: 'success',
+          title: 'Invitation re-sent',
+          message: `New activation link delivered. Valid until ${new Date(result.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.`,
+        });
+      } else {
+        showToast({
+          type: 'info',
+          title: 'Invitation queued, delivery failed',
+          message:
+            (result.invitationError ?? 'Mail transport returned an error') +
+            '. Token was rotated; share the link manually until the mail issue is resolved.',
+        });
+      }
+    } catch (err) {
+      showToast({
+        type: 'error',
+        title: 'Resend failed',
+        message: err instanceof ApiError ? err.message : 'Please try again.',
+      });
+    }
+  }
 
   if (!idParam) return null;
 
@@ -634,9 +688,44 @@ export default function EmployeeDetailPage() {
                 <span className="text-slate">Last updated</span>
                 <span className="text-charcoal">{formatDate(employee.updatedAt)}</span>
               </div>
-              {employee.mustResetPassword && (
-                <div className="mt-2 bg-umberbg rounded px-2 py-1.5 text-xs text-umber">
-                  First login pending — password not yet set.
+              {/* Resend-invite card shows ONLY while the employee is still
+                  Inactive AND hasn't set their first password. The instant
+                  first-login completes, both flags flip and this block hides
+                  (no risk of an admin re-issuing a token for an active user). */}
+              {employee.status === EMPLOYEE_STATUS.Inactive && employee.mustResetPassword && (
+                <div className="mt-2 bg-umberbg border border-umber/30 rounded-lg px-3 py-3">
+                  <div className="flex items-start gap-2 mb-2">
+                    <svg
+                      className="w-4 h-4 text-umber shrink-0 mt-0.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div className="text-xs text-umber">
+                      <p className="font-semibold">First login pending</p>
+                      <p className="text-[11px] mt-0.5 text-umber/80">
+                        If the activation email never landed or the link expired, rotate the token and re-send.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={handleResendInvite}
+                    disabled={resendInvite.isPending}
+                    className="w-full text-xs font-bold bg-umber hover:bg-umber/90 border-umber focus-visible:ring-umber/40"
+                    leadingIcon={
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    }
+                  >
+                    {resendInvite.isPending ? 'Re-sending…' : 'Resend invitation'}
+                  </Button>
                 </div>
               )}
             </div>

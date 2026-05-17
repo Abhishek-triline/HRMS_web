@@ -22,6 +22,7 @@ import {
   reassignManager,
   getTeam,
   getProfile,
+  resendInvite,
 } from '@/lib/api/employees';
 import { qk } from '@/lib/api/query-keys';
 import type {
@@ -400,5 +401,20 @@ export function useReassignManager(id: number) {
       // Hierarchy changed — bust team cache for all managers
       queryClient.invalidateQueries({ queryKey: qk.employees.all });
     },
+  });
+}
+
+
+// ── RESEND INVITE ─────────────────────────────────────────────────────────────
+
+/**
+ * Resend the first-login invitation for an Inactive employee whose original
+ * email never landed or whose token expired. Returns the mailer outcome so
+ * the UI can distinguish "email actually sent" from "API accepted but SMTP
+ * blew up". Audit-logged server-side.
+ */
+export function useResendInvite(id: number) {
+  return useMutation({
+    mutationFn: () => resendInvite(id),
   });
 }

@@ -115,3 +115,21 @@ export async function getProfile(id: number): Promise<EmployeeDetail> {
   const res = await apiClient.get<ProfileResponse>(`${BASE}/${id}/profile`);
   return res.data;
 }
+
+// ── RESEND INVITE ─────────────────────────────────────────────────────────────
+
+export interface ResendInviteResult {
+  invitationSent: boolean;
+  expiresAt: string;
+  invitationError?: string;
+}
+
+/**
+ * POST /api/v1/employees/:id/resend-invite — Admin only. Invalidates any
+ * existing FirstLogin token, mints a fresh one, and re-sends the invitation
+ * email. Returns the actual mailer outcome (no longer hardcoded true).
+ */
+export async function resendInvite(id: number): Promise<ResendInviteResult> {
+  const res = await apiClient.post<{ data: ResendInviteResult }>(`${BASE}/${id}/resend-invite`, {});
+  return res.data;
+}

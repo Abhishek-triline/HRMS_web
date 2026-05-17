@@ -253,8 +253,9 @@ export default function EmployeesPage() {
             <option value="">All Status</option>
             <option value={EMPLOYEE_STATUS.Active}>Active</option>
             <option value={EMPLOYEE_STATUS.OnNotice}>On Notice</option>
-            <option value={EMPLOYEE_STATUS.Exited}>Exited</option>
             <option value={EMPLOYEE_STATUS.OnLeave}>On Leave</option>
+            <option value={EMPLOYEE_STATUS.Inactive}>Inactive (invite pending)</option>
+            <option value={EMPLOYEE_STATUS.Exited}>Exited</option>
           </select>
 
           {/* Role */}
