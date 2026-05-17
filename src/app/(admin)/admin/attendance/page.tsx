@@ -116,14 +116,23 @@ function OrgAttendancePage() {
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [statusFilter, setStatusFilter] = useState<AttendanceStatusValue | 0>(0);
   const [departmentId, setDepartmentId] = useState<number | 0>(0);
+  // `search` tracks every keystroke; `debouncedSearch` lags 300 ms behind
+  // and is what we actually send to the server. Debouncing avoids a query
+  // per character while still keeping the input responsive.
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   const { data: departments = [] } = useDepartments();
 
-  // Server-side cursor pagination over the table. Filter changes reset to page 1.
+  // Server-side cursor pagination over the table. Filter changes (including
+  // the search term) reset to page 1 because the result set differs.
   const pager = useCursorPagination({
     pageSize: PAGE_SIZE,
-    filtersKey: `${selectedDate}|${statusFilter}|${departmentId}`,
+    filtersKey: `${selectedDate}|${statusFilter}|${departmentId}|${debouncedSearch}`,
   });
 
   const { data, isLoading, isError, error } = useAttendanceList('all', {
@@ -132,6 +141,7 @@ function OrgAttendancePage() {
     cursor: pager.cursor,
     ...(statusFilter ? { status: statusFilter as AttendanceStatusValue } : {}),
     ...(departmentId ? { departmentId } : {}),
+    ...(debouncedSearch ? { q: debouncedSearch } : {}),
   });
 
   useEffect(() => {
@@ -140,26 +150,17 @@ function OrgAttendancePage() {
 
   // Aggregate KPI counts come from a separate stats endpoint so they're
   // accurate over the whole filtered set, not just the visible page.
+  // (KPI tiles intentionally do NOT respect the employee search — they
+  // describe the day's headline numbers, not a filtered slice.)
   const statsQuery = useAttendanceStats({
     date: selectedDate,
     ...(departmentId ? { departmentId } : {}),
   });
   const stats = statsQuery.data;
 
-  const pageRows = useMemo(() => data?.data ?? [], [data]);
-
-  // Client-side search narrows the visible page only — server doesn't yet
-  // support a name/code search filter. Acceptable since search is best-effort
-  // within the current page.
-  const visibleRows = useMemo(() => {
-    if (!search.trim()) return pageRows;
-    const q = search.toLowerCase();
-    return pageRows.filter(
-      (r) =>
-        (r.employeeName ?? '').toLowerCase().includes(q) ||
-        (r.employeeCode ?? '').toLowerCase().includes(q),
-    );
-  }, [pageRows, search]);
+  // Page rows now come straight from the server — no client-side filter
+  // overlay. The search input drives the `q` query param above.
+  const visibleRows = useMemo(() => data?.data ?? [], [data]);
 
   const total = stats?.total ?? 0;
   const kpiPresent = stats?.present ?? 0;
@@ -407,7 +408,7 @@ function OrgAttendancePage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search current page by name or EMP code…"
+            placeholder="Search by name or EMP code…"
             aria-label="Search by employee name or code (current page)"
             className="w-full border border-sage/50 rounded-lg px-3 py-2 text-sm bg-white"
           />
@@ -489,7 +490,7 @@ function OrgAttendancePage() {
             <CursorPaginator
               currentPage={pager.currentPage}
               pageSize={pager.pageSize}
-              currentPageCount={pageRows.length}
+              currentPageCount={visibleRows.length}
               hasMore={pager.hasMore}
               highestReachablePage={pager.highestReachablePage}
               onPageChange={pager.goToPage}
