@@ -104,8 +104,8 @@ export function actionPhrase(action: string): string {
   const parts = action.split('.');
   if (parts.length >= 2) {
     const verb = parts[parts.length - 1]!.replace(/-/g, ' ');
-    const module = parts[0]!.replace(/-/g, ' ');
-    return `${verb} on ${module}`;
+    const moduleName = parts[0]!.replace(/-/g, ' ');
+    return `${verb} on ${moduleName}`;
   }
   return action.replace(/[._-]+/g, ' ');
 }
