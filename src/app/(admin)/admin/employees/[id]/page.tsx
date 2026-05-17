@@ -272,23 +272,41 @@ export default function EmployeeDetailPage() {
   const reassignModal = useModal();
   const salaryModal = useModal();
   const resendInvite = useResendInvite(id);
+  // One-shot reveal of the activation URL after a successful resend. The
+  // server returns the raw URL on the response; we hold it here so the
+  // admin can copy it to clipboard / Slack / WhatsApp when the email
+  // transport is unreliable. Cleared when the admin dismisses the panel
+  // — there's no way to retrieve it again afterward (server stores only
+  // the hash).
+  const [revealedInvite, setRevealedInvite] = useState<{
+    url: string;
+    expiresAt: string;
+    mailDelivered: boolean;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   async function handleResendInvite() {
     try {
       const result = await resendInvite.mutateAsync();
+      setRevealedInvite({
+        url: result.inviteUrl,
+        expiresAt: result.expiresAt,
+        mailDelivered: result.invitationSent,
+      });
+      setCopied(false);
       if (result.invitationSent) {
         showToast({
           type: 'success',
           title: 'Invitation re-sent',
-          message: `New activation link delivered. Valid until ${new Date(result.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.`,
+          message: 'Email delivered. You can also copy the activation link below to share directly.',
         });
       } else {
         showToast({
           type: 'info',
-          title: 'Invitation queued, delivery failed',
+          title: 'Mail delivery failed',
           message:
             (result.invitationError ?? 'Mail transport returned an error') +
-            '. Token was rotated; share the link manually until the mail issue is resolved.',
+            '. Copy the link below and share it manually.',
         });
       }
     } catch (err) {
@@ -296,6 +314,23 @@ export default function EmployeeDetailPage() {
         type: 'error',
         title: 'Resend failed',
         message: err instanceof ApiError ? err.message : 'Please try again.',
+      });
+    }
+  }
+
+  async function handleCopyInvite() {
+    if (!revealedInvite) return;
+    try {
+      await navigator.clipboard.writeText(revealedInvite.url);
+      setCopied(true);
+      // Auto-revert the "Copied" label after 2 s so a second copy still
+      // gives the admin clear feedback.
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      showToast({
+        type: 'error',
+        title: 'Copy failed',
+        message: 'Select the URL manually with Ctrl/Cmd-C.',
       });
     }
   }
@@ -726,6 +761,59 @@ export default function EmployeeDetailPage() {
                   >
                     {resendInvite.isPending ? 'Re-sending…' : 'Resend invitation'}
                   </Button>
+
+                  {/* One-shot reveal of the raw activation URL. Lets the
+                      admin hand the link over via Slack / WhatsApp / in
+                      person when email delivery isn't reliable. Closes
+                      when the admin dismisses — the server never sends
+                      it again and only the hash is stored. */}
+                  {revealedInvite && (
+                    <div className="mt-3 bg-white border border-umber/40 rounded-lg p-3">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="text-[11px] font-semibold text-charcoal uppercase tracking-wide">
+                          Activation link
+                          {revealedInvite.mailDelivered ? (
+                            <span className="ml-2 inline-block text-[10px] font-normal text-richgreen normal-case">
+                              · email also delivered
+                            </span>
+                          ) : (
+                            <span className="ml-2 inline-block text-[10px] font-normal text-crimson normal-case">
+                              · email failed — share manually
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setRevealedInvite(null)}
+                          aria-label="Hide activation link"
+                          className="text-slate hover:text-charcoal text-xs leading-none"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="font-mono text-[10px] break-all bg-offwhite border border-sage/40 rounded px-2 py-1.5 text-charcoal mb-2 select-all">
+                        {revealedInvite.url}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={handleCopyInvite}
+                          className="flex-1 text-xs font-semibold"
+                          leadingIcon={
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                            </svg>
+                          }
+                        >
+                          {copied ? 'Copied ✓' : 'Copy link'}
+                        </Button>
+                        <p className="text-[10px] text-slate leading-tight max-w-[140px]">
+                          One-shot reveal. Valid until {new Date(revealedInvite.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

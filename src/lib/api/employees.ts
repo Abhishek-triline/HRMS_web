@@ -121,6 +121,14 @@ export async function getProfile(id: number): Promise<EmployeeDetail> {
 export interface ResendInviteResult {
   invitationSent: boolean;
   expiresAt: string;
+  /**
+   * One-shot copy of the activation URL — the same link the email contains.
+   * Server returns this so the admin can hand it over out-of-band when the
+   * mail transport is unavailable. Only the token's hash is stored
+   * server-side; once this response is dismissed the URL is unrecoverable
+   * by anyone (including admins), so it really is single-use.
+   */
+  inviteUrl: string;
   invitationError?: string;
 }
 
