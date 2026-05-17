@@ -65,12 +65,24 @@ export default function AdminRegularisationQueuePage() {
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const [appliedFilters, setAppliedFilters] = useState({
-    status: 'all' as FilterStatus,
-    employee: '',
-    fromDate: '',
-    toDate: '',
-  });
+
+  // Debounce only the free-text employee search — the rest are dropdowns / date
+  // pickers where each change is a deliberate, low-frequency event.
+  const [debouncedEmployee, setDebouncedEmployee] = useState('');
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedEmployee(employeeSearch.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [employeeSearch]);
+
+  const appliedFilters = useMemo(
+    () => ({
+      status: statusFilter,
+      employee: debouncedEmployee,
+      fromDate,
+      toDate,
+    }),
+    [statusFilter, debouncedEmployee, fromDate, toDate],
+  );
 
   // Server-side cursor pagination. Auto-resets when filtersKey changes —
   // include employee q so changing it (rare) doesn't strand the user on a
@@ -86,7 +98,7 @@ export default function AdminRegularisationQueuePage() {
     ...(appliedFilters.status !== 'all' ? { status: appliedFilters.status as RegStatusValue } : {}),
     ...(appliedFilters.fromDate ? { fromDate: appliedFilters.fromDate } : {}),
     ...(appliedFilters.toDate ? { toDate: appliedFilters.toDate } : {}),
-    ...(appliedFilters.employee.trim() ? { q: appliedFilters.employee.trim() } : {}),
+    ...(appliedFilters.employee ? { q: appliedFilters.employee } : {}),
     limit: pager.pageSize,
     cursor: pager.cursor,
   };
@@ -131,7 +143,7 @@ export default function AdminRegularisationQueuePage() {
     routedToId: 2 as const,
     ...(appliedFilters.fromDate ? { fromDate: appliedFilters.fromDate } : {}),
     ...(appliedFilters.toDate ? { toDate: appliedFilters.toDate } : {}),
-    ...(appliedFilters.employee.trim() ? { q: appliedFilters.employee.trim() } : {}),
+    ...(appliedFilters.employee ? { q: appliedFilters.employee } : {}),
   };
   const pendingTotalQ = useRegularisations({
     ...sharedFilters,
@@ -153,15 +165,6 @@ export default function AdminRegularisationQueuePage() {
   const pendingCount = pendingTotalQ.data?.total ?? 0;
   const approvedCount = approvedThisMonthQ.data?.total ?? 0;
   const rejectedCount = rejectedTotalQ.data?.total ?? 0;
-
-  const handleApply = () => {
-    setAppliedFilters({
-      status: statusFilter,
-      employee: employeeSearch,
-      fromDate,
-      toDate,
-    });
-  };
 
   return (
     <div className="space-y-5">
@@ -263,14 +266,6 @@ export default function AdminRegularisationQueuePage() {
               className="border border-sage/50 rounded-lg pl-9 pr-3 py-2 text-sm text-charcoal bg-white w-full focus:outline-none focus:ring-2 focus:ring-forest/30"
             />
           </div>
-        </div>
-        <div>
-          <button
-            onClick={handleApply}
-            className="bg-forest text-white hover:bg-emerald px-4 py-2 rounded-lg text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest/40"
-          >
-            Apply Filters
-          </button>
         </div>
       </div>
 

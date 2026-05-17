@@ -12,7 +12,7 @@
  * live amount preview note, optional note. Calls /admin-finalise.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { clsx } from 'clsx';
@@ -437,19 +437,28 @@ export function AdminEncashmentQueue() {
 
   const currentYear = new Date().getFullYear();
 
-  // "All this year" tab carries its own filter bar. Filters are buffered in
-  // the input state and pushed to appliedFilters on Apply so we don't refetch
-  // on every keystroke. None of these filters apply to the other two tabs.
+  // "All this year" tab carries its own filter bar. Dropdown / date changes
+  // apply instantly; the free-text employee search is debounced (300 ms) so
+  // we don't refetch on every keystroke. None of these filters apply to the
+  // other two tabs.
   const [statusInput, setStatusInput] = useState<'' | number>('');
   const [fromDateInput, setFromDateInput] = useState('');
   const [toDateInput, setToDateInput] = useState('');
   const [employeeQInput, setEmployeeQInput] = useState('');
-  const [appliedFilters, setAppliedFilters] = useState<{
-    status: '' | number;
-    fromDate: string;
-    toDate: string;
-    q: string;
-  }>({ status: '', fromDate: '', toDate: '', q: '' });
+  const [debouncedEmployeeQ, setDebouncedEmployeeQ] = useState('');
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedEmployeeQ(employeeQInput.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [employeeQInput]);
+  const appliedFilters = useMemo(
+    () => ({
+      status: statusInput,
+      fromDate: fromDateInput,
+      toDate: toDateInput,
+      q: debouncedEmployeeQ,
+    }),
+    [statusInput, fromDateInput, toDateInput, debouncedEmployeeQ],
+  );
 
   // Server-side cursor pagination — cursor map resets on tab or filter change.
   const pager = useCursorPagination({
@@ -471,25 +480,18 @@ export function AdminEncashmentQueue() {
             ...(appliedFilters.status !== '' ? { status: appliedFilters.status } : {}),
             ...(appliedFilters.fromDate ? { fromDate: appliedFilters.fromDate } : {}),
             ...(appliedFilters.toDate ? { toDate: appliedFilters.toDate } : {}),
-            ...(appliedFilters.q.trim() ? { q: appliedFilters.q.trim() } : {}),
+            ...(appliedFilters.q ? { q: appliedFilters.q } : {}),
           },
   );
 
-  function handleApplyAllFilters() {
-    setAppliedFilters({
-      status: statusInput,
-      fromDate: fromDateInput,
-      toDate: toDateInput,
-      q: employeeQInput,
-    });
-  }
   function handleResetAllFilters() {
     setStatusInput('');
     setFromDateInput('');
     setToDateInput('');
     setEmployeeQInput('');
-    setAppliedFilters({ status: '', fromDate: '', toDate: '', q: '' });
   }
+  const hasActiveFilters =
+    statusInput !== '' || fromDateInput !== '' || toDateInput !== '' || employeeQInput.trim() !== '';
 
   useEffect(() => {
     if (query.data) pager.cacheNextCursor(query.data.nextCursor);
@@ -638,14 +640,13 @@ export function AdminEncashmentQueue() {
                       className="w-full border border-sage/50 rounded-lg px-3 py-2 text-sm bg-white"
                     />
                   </div>
-                  <div className="flex items-end gap-2">
-                    <Button type="button" variant="primary" onClick={handleApplyAllFilters}>
-                      Apply
-                    </Button>
-                    <Button type="button" variant="secondary" onClick={handleResetAllFilters}>
-                      Reset
-                    </Button>
-                  </div>
+                  {hasActiveFilters && (
+                    <div className="flex items-end gap-2">
+                      <Button type="button" variant="secondary" onClick={handleResetAllFilters}>
+                        Reset
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

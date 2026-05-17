@@ -720,8 +720,30 @@ export function AuditLogPageClient() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
-  // Applied filters (only change on "Apply")
-  const [appliedFilters, setAppliedFilters] = useState<AuditLogFilters>({});
+  // Apply filters live, no button. Text inputs debounce by 300 ms so we
+  // don't fire a query per keystroke; select / date inputs commit
+  // instantly. The composed filter object feeds useAuditLogs directly.
+  const [debouncedQ, setDebouncedQ] = useState(q);
+  const [debouncedAction, setDebouncedAction] = useState(action);
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedQ(q.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [q]);
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedAction(action.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [action]);
+
+  const appliedFilters: AuditLogFilters = useMemo(() => {
+    const f: AuditLogFilters = {};
+    if (debouncedQ) f.q = debouncedQ;
+    if (module && MODULE_NAME_TO_ID[module]) f.moduleId = MODULE_NAME_TO_ID[module];
+    if (debouncedAction) f.action = debouncedAction;
+    if (actorRole && ROLE_NAME_TO_ID[actorRole]) f.actorRoleId = ROLE_NAME_TO_ID[actorRole];
+    if (from) f.from = from;
+    if (to) f.to = to;
+    return f;
+  }, [debouncedQ, module, debouncedAction, actorRole, from, to]);
 
   // Numbered pagination — 20 rows per page.
   const PAGE_SIZE = 20;
@@ -769,17 +791,6 @@ export function AuditLogPageClient() {
   const loadedPages = Math.max(1, Math.ceil(totalLoaded / PAGE_SIZE));
   const totalPages = hasNextPage ? loadedPages + 1 : loadedPages;
 
-  function handleApply() {
-    const filters: AuditLogFilters = {};
-    if (q.trim()) filters.q = q.trim();
-    if (module && MODULE_NAME_TO_ID[module]) filters.moduleId = MODULE_NAME_TO_ID[module];
-    if (action.trim()) filters.action = action.trim();
-    if (actorRole && ROLE_NAME_TO_ID[actorRole]) filters.actorRoleId = ROLE_NAME_TO_ID[actorRole];
-    if (from) filters.from = from;
-    if (to) filters.to = to;
-    setAppliedFilters(filters);
-  }
-
   function handleReset() {
     setQ('');
     setModule('');
@@ -787,7 +798,6 @@ export function AuditLogPageClient() {
     setActorRole('');
     setFrom('');
     setTo('');
-    setAppliedFilters({});
   }
 
   // Fetch the full filtered set in a single request so the CSV reflects
@@ -1013,18 +1023,11 @@ export function AuditLogPageClient() {
             />
           </div>
 
-          {/* Apply */}
-          <Button variant="primary" size="sm" onClick={handleApply}>
-            Apply
-            {activeFilterCount > 0 && (
-              <span className="ml-1.5 bg-mint text-forest text-[10px] font-bold px-1.5 py-0.5 rounded-full">{activeFilterCount}</span>
-            )}
-          </Button>
-
           {/* Reset */}
           {activeFilterCount > 0 && (
             <Button variant="secondary" size="sm" onClick={handleReset}>
               Clear
+              <span className="ml-1.5 bg-mint text-forest text-[10px] font-bold px-1.5 py-0.5 rounded-full">{activeFilterCount}</span>
             </Button>
           )}
 
