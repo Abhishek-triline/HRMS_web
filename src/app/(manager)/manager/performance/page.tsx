@@ -222,12 +222,19 @@ export default function ManagerPerformanceQueuePage() {
           {/* Pending */}
           {pending.length > 0 && (
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-heading text-sm font-bold text-charcoal uppercase tracking-wider">
-                  Action Required ({pending.length})
-                </h2>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div>
+                  <h2 className="font-heading text-sm font-bold text-charcoal uppercase tracking-wider">
+                    Action Required ({pending.length})
+                  </h2>
+                  {eligibleCount > 0 && (
+                    <p className="text-xs text-slate mt-1">
+                      Tick rows to add the same goal to multiple team members at once.
+                    </p>
+                  )}
+                </div>
                 {eligibleCount > 0 && (
-                  <label className="flex items-center gap-2 text-xs text-slate cursor-pointer select-none">
+                  <label className="flex items-center gap-2 text-xs font-medium text-charcoal cursor-pointer select-none mt-0.5">
                     <input
                       type="checkbox"
                       className="w-4 h-4 rounded border-sage text-forest focus:ring-forest/30"
@@ -236,9 +243,9 @@ export default function ManagerPerformanceQueuePage() {
                         if (el) el.indeterminate = someEligibleSelected;
                       }}
                       onChange={toggleAllEligible}
-                      aria-label="Select all eligible reviews for bulk goal creation"
+                      aria-label={`Select all ${eligibleCount} team members to add a goal to`}
                     />
-                    Select all eligible ({eligibleCount})
+                    Add a goal to all {eligibleCount}
                   </label>
                 )}
               </div>
