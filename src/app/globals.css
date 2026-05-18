@@ -185,7 +185,30 @@ aside > * {
     linear-gradient(160deg, #1C3D2E 0%, #2D7A5F 28%, #4DA37A 50%, #C8843B 78%, #E8A14A 100%);
 }
 [data-nx-hero][data-tod="evening"] {
-  background: linear-gradient(180deg, #5B3D6F 0%, #B85B6F 45%, #F4A56B 80%, #B85B6F 100%);
+  /* Real evening — sun has just dropped below the horizon.
+   *
+   * Mental model:
+   *   • Upper sky has already cooled into dusk-blue / indigo.
+   *   • A muted violet band marks where blue meets warm.
+   *   • Just above the horizon, a soft afterglow band — peach into gold.
+   *   • A wide, gentle horizon halo (radial) suggests the sun is still
+   *     casting light from below the edge.
+   *
+   * NOT a dramatic sunset. The colours are restrained on purpose so the card
+   * reads as a quiet, photographic dusk rather than a poster. */
+  background:
+    radial-gradient(ellipse 130% 38% at 50% 95%,
+      rgba(255, 205, 150, 0.45) 0%,
+      rgba(235, 145, 100, 0.20) 45%,
+      transparent 78%),
+    linear-gradient(180deg,
+      #1B2748   0%,
+      #2C3B65  18%,
+      #4F4A78  35%,
+      #8B637F  52%,
+      #C18271  70%,
+      #E2A984  88%,
+      #F2C696 100%);
 }
 [data-nx-hero][data-tod="night"] {
   background: linear-gradient(180deg, #0A1F2E 0%, #112A38 40%, #1C3D2E 100%);
@@ -215,7 +238,9 @@ aside > * {
 [data-nx-hero][data-tod="day"]     .nx-waves,
 [data-nx-hero][data-tod="day"]     .nx-mtn-back-svg,
 [data-nx-hero][data-tod="day"]     .nx-mtn-front-svg,
-[data-nx-hero][data-tod="day"]     .nx-ambient { display: block; }
+[data-nx-hero][data-tod="day"]     .nx-ambient,
+[data-nx-hero][data-tod="evening"] .nx-mtn-back-svg,
+[data-nx-hero][data-tod="evening"] .nx-mtn-front-svg { display: block; }
 
 /* Stars only at night, sun hidden at night */
 [data-nx-hero] .nx-stars { display: none; }
@@ -252,11 +277,14 @@ aside > * {
   filter: blur(36px);
 }
 
-/* Mountain silhouettes */
+/* Mountain silhouettes — evening uses deep plum / forest so the silhouettes
+ * read against the warm sunset gradient without competing with it. */
 [data-nx-hero][data-tod="morning"] .nx-mtn-back  { fill: #0F2E22; }
 [data-nx-hero][data-tod="morning"] .nx-mtn-front { fill: #1C3D2E; }
 [data-nx-hero][data-tod="day"]     .nx-mtn-back  { fill: #0F2E22; }
 [data-nx-hero][data-tod="day"]     .nx-mtn-front { fill: #1C3D2E; }
+[data-nx-hero][data-tod="evening"] .nx-mtn-back  { fill: #1A2240; }
+[data-nx-hero][data-tod="evening"] .nx-mtn-front { fill: #0E1428; }
 
 /* Sun-SVG colour per tod */
 [data-nx-hero][data-tod="morning"] .nx-celestial { color: #FFE39A; }
