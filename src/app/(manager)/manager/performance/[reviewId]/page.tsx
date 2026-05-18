@@ -13,7 +13,6 @@
  * - OverrideTag when manager rating differs from self rating (BL-040).
  */
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useReview, useCycle, useCreateGoal, useSubmitManagerRating } from '@/lib/hooks/usePerformance';
@@ -23,7 +22,6 @@ import { GoalList } from '@/components/performance/GoalList';
 import { ManagerRatingForm } from '@/components/performance/ManagerRatingForm';
 import { ManagerChangeAuditCard } from '@/components/performance/ManagerChangeAuditCard';
 import { MidCycleJoinerNotice } from '@/components/performance/MidCycleJoinerNotice';
-import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { showToast } from '@/components/ui/Toast';
 import { ApiError } from '@/lib/api/client';
@@ -33,22 +31,18 @@ import type { GoalOutcomeIdValue } from '@nexora/contracts/performance';
 
 export default function ManagerReviewDetailPage() {
   const { reviewId } = useParams<{ reviewId: string }>();
-  const [newGoalText, setNewGoalText] = useState('');
-  const [addingGoal, setAddingGoal] = useState(false);
 
   const reviewIdNum = Number(reviewId);
   const { data, isLoading, isError } = useReview(reviewIdNum);
   const cycleId = data?.cycleId ?? 0;
   const { data: cycleData } = useCycle(cycleId);
-  const { mutateAsync: createGoal, isPending: isCreatingGoal } = useCreateGoal(reviewIdNum);
+  const { mutateAsync: createGoal } = useCreateGoal(reviewIdNum);
   const { mutateAsync: submitManagerRating, isPending: isSubmitting } = useSubmitManagerRating(reviewIdNum);
 
   async function handleCreateGoal(text: string) {
     try {
       await createGoal({ text });
       showToast({ type: 'success', title: 'Goal added' });
-      setNewGoalText('');
-      setAddingGoal(false);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === ErrorCode.CYCLE_CLOSED) {
@@ -59,6 +53,7 @@ export default function ManagerReviewDetailPage() {
           showToast({ type: 'error', title: 'Failed to add goal', message: err.message });
         }
       }
+      throw err;
     }
   }
 
@@ -144,63 +139,11 @@ export default function ManagerReviewDetailPage() {
 
       {/* M-09: Goal setting */}
       <div className="bg-white rounded-xl border border-sage/30 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-heading text-base font-bold text-charcoal">Goals (M-09)</h2>
-          {isCycleOpen && review.lockedAt === null && !review.isMidCycleJoiner && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setAddingGoal(true)}
-              leadingIcon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              }
-            >
-              Add goal
-            </Button>
-          )}
-        </div>
-
-        {addingGoal && (
-          <div className="mb-4 p-4 bg-offwhite rounded-lg border border-sage/30">
-            <div className="relative">
-              <textarea
-                value={newGoalText}
-                onChange={(e) => setNewGoalText(e.target.value)}
-                rows={2}
-                maxLength={500}
-                placeholder="Describe the goal (3–500 characters)…"
-                className="w-full border border-sage rounded-lg px-3.5 py-2.5 text-sm text-charcoal bg-white focus:outline-none focus:ring-2 focus:ring-forest/20 focus:border-forest resize-none"
-                aria-label="New goal text"
-              />
-              <span className="absolute bottom-2 right-3 text-xs text-sage">{newGoalText.length}/500</span>
-            </div>
-            <div className="flex gap-2 mt-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => handleCreateGoal(newGoalText)}
-                loading={isCreatingGoal}
-                disabled={newGoalText.trim().length < 3}
-              >
-                Save goal
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => { setAddingGoal(false); setNewGoalText(''); }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-
+        <h2 className="font-heading text-base font-bold text-charcoal mb-4">Goals (M-09)</h2>
         <GoalList
           goals={review.goals}
+          canCreateGoal={isCycleOpen && review.lockedAt === null && !review.isMidCycleJoiner}
+          onCreateGoal={handleCreateGoal}
           disabled={review.lockedAt !== null}
         />
       </div>
