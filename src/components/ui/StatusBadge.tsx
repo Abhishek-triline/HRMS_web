@@ -221,7 +221,7 @@ export type StatusBadgeProps = StatusBadgeLegacyProps | StatusBadgeV2Props;
  *     <StatusBadge entity="leaveStatus" code={2} />
  *
  * In v2 mode the label comes from `lib/status/maps.ts` (which mirrors the
- * frozen INT→label mapping in docs/HRMS_Schema_v2_Plan.md §3) and the
+ * frozen INT→label mapping in docs/archive/schema-v2-plan.md §3) and the
  * colour comes from the entry's `badge` key. Pass `label="..."` to override
  * the resolved label without changing the colour.
  */

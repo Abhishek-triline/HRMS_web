@@ -1,6 +1,6 @@
 /**
  * Auth API wrappers — typed against @nexora/contracts/auth.
- * Endpoints per docs/HRMS_API.md § 4.
+ * Endpoints per docs/api/reference.md § 4.
  *
  * Never call apiClient directly from pages — use these typed wrappers.
  */

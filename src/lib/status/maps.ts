@@ -13,7 +13,7 @@
  * state (e.g. every "approved-ish" state uses the green palette).
  *
  * The mappings here mirror the FROZEN INT codes in
- * `docs/HRMS_Schema_v2_Plan.md` §3 and the MySQL `COLUMN_COMMENT` clauses.
+ * `docs/archive/schema-v2-plan.md` §3 and the MySQL `COLUMN_COMMENT` clauses.
  * Never re-number an existing code — only append.
  *
  * When you append a code, update all six locations listed in the §3
